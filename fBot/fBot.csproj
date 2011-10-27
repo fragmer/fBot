@@ -67,6 +67,7 @@
     <Compile Include="Packets\SetPermissionPacket.cs" />
     <Compile Include="Packets\TeleportPacket.cs" />
     <Compile Include="PacketWriter.cs" />
+    <Compile Include="Utils\JetBrains.Annotations.cs" />
     <Compile Include="Utils\Position.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

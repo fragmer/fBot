@@ -1,8 +1,11 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
+using JetBrains.Annotations;
 
 namespace fBot {
     class Color {
-        public static string StripColors( string text ) {
+        public static string StripColors( [NotNull] string text ) {
+            if( text == null ) throw new ArgumentNullException( "text" );
             StringBuilder output = new StringBuilder();
             for( int i = 0; i < text.Length; i++ ) {
                 if( text[i] == '&' ) {

@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 
 
 namespace fBot {
@@ -17,13 +18,16 @@ namespace fBot {
                               PlayAuthToken = new Regex( @"name=""mppass"" value=""([0-9a-f]+)""" );
 
 
-        public MinecraftNetSession( string username, string password ) {
-            Username = username;
-            Password = password;
-        }
         public string Username { get; private set; }
         public string Password { get; private set; }
         public bool IsLoggedIn { get; private set; }
+
+        public MinecraftNetSession( [NotNull] string username, [NotNull] string password ) {
+            if( username == null ) throw new ArgumentNullException( "username" );
+            if( password == null ) throw new ArgumentNullException( "password" );
+            Username = username;
+            Password = password;
+        }
 
 
         public bool Login() {
@@ -38,8 +42,10 @@ namespace fBot {
         }
 
 
-        public ServerInfo GetServerInfo( string serverHash ) {
-            if( !IsLoggedIn ) return null;
+        [NotNull]
+        public ServerInfo GetServerInfo( [NotNull] string serverHash ) {
+            if( serverHash == null ) throw new ArgumentNullException( "serverHash" );
+            if( !IsLoggedIn ) throw new InvalidOperationException( "Not logged in" );
             string playPage = DownloadString( PlayUri + serverHash, RefererUri );
             string rawIP = PlayIP.Match( playPage ).Groups[1].Value;
             string rawPort = PlayPort.Match( playPage ).Groups[1].Value;

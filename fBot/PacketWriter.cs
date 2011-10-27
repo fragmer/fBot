@@ -1,6 +1,8 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Net;
 using System.Text;
+using JetBrains.Annotations;
 
 namespace fBot {
     sealed class PacketWriter : BinaryWriter {
@@ -25,7 +27,8 @@ namespace fBot {
             Write( IPAddress.HostToNetworkOrder( value ) );
         }
 
-        public void WriteMCString( string value ) {
+        public void WriteMCString( [NotNull] string value ) {
+            if( value == null ) throw new ArgumentNullException( "value" );
             Write( Encoding.ASCII.GetBytes( value.PadRight( 64 ).Substring( 0, 64 ) ) );
         }
     }

@@ -2,10 +2,24 @@
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
+using JetBrains.Annotations;
 
 namespace fBot {
     sealed class ServerSession {
-        const int Timeout = 10000;
+        const int TimeoutDefault = 10000;
+
+        int timeout;
+        public int Timeout {
+            get { return timeout; }
+            set {
+                timeout = value;
+                var cl = client;
+                if( cl != null ) {
+                    cl.SendTimeout = timeout;
+                    cl.ReceiveTimeout = timeout;
+                }
+            }
+        }
 
         Thread thread;
         NetworkStream stream;
@@ -17,14 +31,17 @@ namespace fBot {
         readonly Queue<Packet> outputQueue = new Queue<Packet>();
         readonly object outputQueueLock = new object();
 
-        public ServerSession( ServerInfo info ) {
+        public ServerSession( [NotNull] ServerInfo info ) {
+            if( info == null ) throw new ArgumentNullException( "info" );
             Info = info;
+            Timeout = TimeoutDefault;
         }
+
 
         public void Connect( bool runInNewThread ) {
             client = new TcpClient {
-                ReceiveTimeout = Timeout,
-                SendTimeout = Timeout
+                ReceiveTimeout = timeout,
+                SendTimeout = timeout
             };
             client.Connect( Info.IP, Info.Port );
             stream = client.GetStream();
@@ -42,39 +59,58 @@ namespace fBot {
         }
 
         void IoThread() {
-            writer.Write( new HandshakePacket( Info.User, Info.AuthToken ) );
-            while( true ) {
-                while( stream.DataAvailable ) {
-                    Packet packet = reader.ReadPacket();
-                    if( PacketReceived != null ) {
-                        PacketReceived( this, new PacketReceivedEventArgs( packet ) );
+            try {
+                writer.Write( new HandshakePacket( Info.User, Info.AuthToken ) );
+                while( true ) {
+                    while( stream.DataAvailable ) {
+                        Packet packet = reader.ReadPacket();
+                        if( PacketReceived != null ) {
+                            PacketReceived( this, new PacketReceivedEventArgs( packet ) );
+                        }
+                        MessagePacket mp = packet as MessagePacket;
+                        var h = MessageReceived;
+                        if( mp != null && h != null ) {
+                            h( this, new MessageReceivedEventArgs( mp.Text ) );
+                        }
                     }
-                    MessagePacket mp = packet as MessagePacket;
-                    var h = MessageReceived;
-                    if( mp != null && h != null ) {
-                        h( this, new MessageReceivedEventArgs( mp.Text ) );
+                    if( outputQueue.Count > 0 ) {
+                        lock( outputQueueLock ) {
+                            writer.Write( outputQueue.Dequeue() );
+                        }
                     }
                 }
-                if( outputQueue.Count > 0 ) {
-                    lock( outputQueueLock ) {
-                        writer.Write( outputQueue.Dequeue() );
-                    }
-                }
+            } catch( Exception ex ) {
+                var h = Disconnected;
+                if( Disconnected != null ) h( this, new DisconnectedEventArgs( ex ) );
             }
         }
 
 
-        public void Send( Packet packet ) {
+        public void Send( [NotNull] Packet packet ) {
+            if( packet == null ) throw new ArgumentNullException( "packet" );
             lock( outputQueueLock ) {
                 outputQueue.Enqueue( packet );
             }
         }
-        public void Message( string text ) {
+
+
+        public void Message( [NotNull] string text ) {
+            if( text == null ) throw new ArgumentNullException( "text" );
             writer.Write( new MessagePacket( text ) );
         }
 
+
         public event EventHandler<PacketReceivedEventArgs> PacketReceived;
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
+        public event EventHandler<DisconnectedEventArgs> Disconnected;
+    }
+
+
+    sealed class DisconnectedEventArgs : EventArgs {
+        public DisconnectedEventArgs( Exception ex ) {
+            Exception = ex;
+        }
+        public Exception Exception { get; private set; }
     }
 
 
