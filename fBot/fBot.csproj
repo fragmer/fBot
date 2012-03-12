@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Block.cs" />
+    <Compile Include="LoginResult.cs" />
     <Compile Include="ServerInfo.cs" />
     <Compile Include="Utils\Color.cs" />
     <Compile Include="MinecraftNetSession.cs">

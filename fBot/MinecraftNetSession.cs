@@ -17,12 +17,14 @@ namespace fBot {
                               PlayPort = new Regex( @"name=""port"" value=""(\d+)""" ),
                               PlayAuthToken = new Regex( @"name=""mppass"" value=""([0-9a-f]+)""" );
 
+        static readonly Regex LoginAuthToken = new Regex( @"<input type=""hidden"" name=""authenticityToken"" value=""([0-9a-f]+)"">" );
+
 
         public string Username { get; private set; }
         public string Password { get; private set; }
-        public bool IsLoggedIn { get; private set; }
+        public LoginResult Status { get; private set; }
 
-        public MinecraftNetSession( [NotNull] string username, [NotNull] string password ) {
+        public MinecraftNetSession( string username, string password ) {
             if( username == null ) throw new ArgumentNullException( "username" );
             if( password == null ) throw new ArgumentNullException( "password" );
             Username = username;
@@ -30,22 +32,31 @@ namespace fBot {
         }
 
 
-        public bool Login() {
-            if( IsLoggedIn ) return true;
-            DownloadString( LoginUri, RefererUri );
-            string loginString = String.Format( "username={0}&password={1}",
+        public LoginResult Login() {
+            string loginPage = DownloadString( LoginUri, RefererUri );
+
+            string authToken = LoginAuthToken.Match( loginPage ).Groups[1].Value;
+
+            string loginString = String.Format( "username={0}&password={1}&authenticityToken={2}",
                                                 Uri.EscapeDataString( Username ),
-                                                Uri.EscapeDataString( Password ) );
+                                                Uri.EscapeDataString( Password ),
+                                                Uri.EscapeDataString( authToken ) );
+
             string loginResponse = UploadString( LoginSecureUri, LoginUri, loginString );
-            IsLoggedIn = (loginResponse.IndexOf( "Logged in as " + Username ) >= 0);
-            return IsLoggedIn;
+            if( loginResponse.Contains( "Oops, unknown username or password." ) ) {
+                Status = LoginResult.WrongUsernameOrPass;
+            } else if( loginResponse.IndexOf( "Logged in as " + Username ) != -1 ) {
+                Status = LoginResult.Success;
+            } else {
+                Status = LoginResult.Error;
+            }
+            return Status;
         }
 
 
-        [NotNull]
-        public ServerInfo GetServerInfo( [NotNull] string serverHash ) {
+        public ServerInfo GetServerInfo( string serverHash ) {
             if( serverHash == null ) throw new ArgumentNullException( "serverHash" );
-            if( !IsLoggedIn ) throw new InvalidOperationException( "Not logged in" );
+            if( Status != LoginResult.Success ) throw new InvalidOperationException( "Not logged in" );
             string playPage = DownloadString( PlayUri + serverHash, RefererUri );
             string rawIP = PlayIP.Match( playPage ).Groups[1].Value;
             string rawPort = PlayPort.Match( playPage ).Groups[1].Value;
@@ -86,7 +97,7 @@ namespace fBot {
         string DownloadString( string uri, string referer ) {
             var response = MakeRequest( uri, referer, null );
             using( Stream stream = response.GetResponseStream() ) {
-                if(stream==null)throw new IOException();
+                if( stream == null ) throw new IOException();
                 using( StreamReader reader = new StreamReader( stream ) ) {
                     return reader.ReadToEnd();
                 }
