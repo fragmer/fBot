@@ -1,7 +1,7 @@
 ﻿namespace fBot {
     static class Program {
         static void Main() {
-            MinecraftNetSession login = new MinecraftNetSession( "fCraft", "HerpDerp" );
+            MinecraftNetSession login = new MinecraftNetSession( "Username", "Password" );
             login.Login();
 
             ServerInfo data = login.GetServerInfo( "f4e8bee64595a29f61cacd2fdae8479" );
